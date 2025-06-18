@@ -1,0 +1,16 @@
+datasource db {
+    provider = "mongodb"
+    url      = env("DATABASE_URL")
+}
+
+generator db {
+    provider = "prisma-client-js"
+}
+
+model SlackInstallation {
+    id             String  @id @default(auto()) @map("_id") @db.ObjectId()
+    installation   String
+    installationId String  @unique
+    workspaceId    String  @unique @default("")
+    connected      Boolean @default(false)
+}
