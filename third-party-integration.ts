@@ -27,6 +27,7 @@ class SlackIntegration extends IntegrationBase implements TSlackStruct {
       clientSecret: process.env.SLACK_CLIENT_SECRET as string,
       stateSecret: process.env.SLACK_STATE_SECRET,
       stateStore: new FileStateStore({ baseDir: path.resolve(__dirname, './state-store'), }),
+      stateVerification: false,
       clientOptions: {
         slackApiUrl: 'https://slack.com/api',
         headers: {
