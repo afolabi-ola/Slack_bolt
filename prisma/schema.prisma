@@ -14,3 +14,28 @@ model SlackInstallation {
     workspaceId    String  @unique @default("")
     connected      Boolean @default(false)
 }
+
+model Integration {
+    id          String  @id @default(auto()) @map("_id") @db.ObjectId
+    service     String  @unique
+    status      Boolean
+    workspaceId String
+}
+
+model Workspace {
+    id             String   @id @default(auto()) @map("_id") @db.ObjectId
+    url            String?  @unique @default("")
+    visibility     Boolean  @default(false)
+    readAccess     String[] @default([])
+    writeAccess    String[] @default([])
+    totalMembers   Int
+    name           String   @unique
+    description    String?  @default("")
+    RandR          String?  @default("")
+    image          String?  @default("https://i.pinimg.com/736x/4e/38/e7/4e38e73208c8a9c2410e4f1d9cb90ee5.jpg")
+    workspaceAdmin String[]
+    owner          String   @db.ObjectId
+    plan           String?  @default("free")
+    members        String[] @default([])
+    integrations   Json[]   @default([])
+}

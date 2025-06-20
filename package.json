@@ -11,7 +11,7 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
-    "@prisma/client": "^6.10.0",
+    "@prisma/client": "^6.10.1",
     "@slack/bolt": "^4.4.0",
     "amqplib": "^0.10.8",
     "cors": "^2.8.5",
@@ -23,6 +23,6 @@
   "devDependencies": {
     "@types/amqplib": "^0.10.7",
     "@types/cors": "^2.8.19",
-    "prisma": "^6.10.0"
+    "prisma": "^6.10.1"
   }
 }
