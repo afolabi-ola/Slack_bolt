@@ -1,12 +1,19 @@
 import { App, AwsLambdaReceiver, ExpressReceiver, LogLevel } from "@slack/bolt";
 import { config } from "dotenv";
-
+import { EventEmitter } from 'node:events'
 import { PrismaClient } from "@prisma/client";
 import amqp from "amqplib"
 
 config();
 
+class CustomEmitter extends EventEmitter {
+  constructor() {
+    super()
+  }
+}
 
+
+const emitter = new CustomEmitter()
 const main = async () => {
   let channel: amqp.Channel
   let queue_name: string
@@ -25,23 +32,32 @@ const main = async () => {
     channel.consume(queue_name, async (message) => {
       if (message) {
         const workspaceId = message.content.toString()
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.integration.create({
+              data: {
+                service: "slack",
+                status: true,
+                workspaceId: workspaceId,
 
-        await prisma.$transaction(async (tx) => {
-          await tx.integration.create({
-            data: {
-              service: "slack",
-              status: true,
-              workspaceId: workspaceId,
+              }
+            })
 
-            }
+
+            await tx.workspace.update({ where: { id: workspaceId }, data: { integrations: { push: "slack" } } })
+
+
           })
+        }
+        catch (e) {
+          channel.nack(message, false, false)
+        }
 
-
-          await tx.workspace.update({ where: { id: workspaceId }, data: { integrations: { push: "slack" } } })
-
+        emitter.on("slack_install_success", () => {
+          channel.ack(message)
         })
       }
-    })
+    }, { noAck: false })
 
 
 
@@ -164,9 +180,7 @@ const main = async () => {
         },
 
         success: async (installation, options, callbackReq, callbackRes) => {
-          console.log("yo")
-
-
+          emitter.emit("slack_install_success")
         }
       }
     },
