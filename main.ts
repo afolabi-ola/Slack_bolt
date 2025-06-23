@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import { EventEmitter } from 'node:events'
 import { PrismaClient } from "@prisma/client";
 import amqp from "amqplib"
+import { validateSlackSchema } from "./schema/slack-message.schema";
 
 config();
 
@@ -21,13 +22,49 @@ const main = async () => {
     const connection = await amqp.connect("amqp://localhost")
 
     channel = await connection.createChannel()
+    channel.prefetch(1)
     queue_name = "slack_installation"
+
     channel.assertQueue(queue_name, {
       durable: true
     })
 
 
-    channel.prefetch(1)
+    channel.assertQueue("get_slack_channels", { durable: true })
+
+    // channel.consume("get_slack_channels", async (message) => {
+    //   if (message) {
+    //     const parsed_msg = JSON.parse(message.content.toString())
+    //     await app.client.conversations.list({
+    //       token: parsed_msg.token
+    //     })
+
+    //     channel.ack(message)
+    //   }
+    // })
+
+
+
+    channel.assertQueue("slack_message", { durable: true })
+
+    channel.consume("slack_message", async (message) => {
+      if (message) {
+        const msg = JSON.parse(message?.content.toString() as string)
+
+        try {
+          await app.client.chat.postMessage({
+            channel: msg.channel,
+            text: msg.text,
+            token: msg.token
+          })
+
+          channel.ack(message)
+        } catch (e) {
+          channel.nack(message, false, true)
+        }
+      }
+    })
+
 
     channel.consume(queue_name, async (message) => {
       if (message) {
@@ -39,7 +76,6 @@ const main = async () => {
                 service: "slack",
                 status: true,
                 workspaceId: workspaceId,
-
               }
             })
 
@@ -106,7 +142,7 @@ const main = async () => {
         // return await myDB.get(installQuery.enterpriseId);
         const slackInstallation = await prisma.slackInstallation.findUnique({
           where: {
-            id: installQuery.enterpriseId,
+            installationId: installQuery.enterpriseId
           },
         });
 
@@ -193,11 +229,11 @@ const main = async () => {
 
 
 
-
   app.command("/hello", async ({ ack, respond }) => {
     await ack();
     await respond("Hello message from slack app");
   });
+
 
   expressApp.use((req, res, next) => {
     console.log("Hello Guys")
@@ -209,6 +245,27 @@ const main = async () => {
   expressApp.get("/", (req, res) => {
     res.send("Hi Here")
   })
+
+  expressApp.get("/slack/channels/:workspaceId", async (req, res) => {
+    const workspaceId = req.params["workspaceId"]
+    if (workspaceId.length !== 24) {
+      res.status(400).send({ message: "invalid workspace id" })
+      return
+    }
+
+    const integration = await prisma.integration.findUnique({ where: { service: "slack", workspaceId } })
+    if (!integration) {
+      res.status(404).send({ message: "slack has not been setup in your workspace, report to admin" })
+      return
+    }
+
+    const result = await app.client.conversations.list({ token: integration.slackBotoken as string, types: "public_channel", exclude_archived: true, limit: 100 })
+    res.send({ message: "channels retrieved successfully", data: result.channels })
+  })
+
+
+
+
 
 
   expressApp.listen(PORT, async () => {

@@ -16,10 +16,11 @@ model SlackInstallation {
 }
 
 model Integration {
-    id          String  @id @default(auto()) @map("_id") @db.ObjectId
-    service     String  @unique
-    status      Boolean
-    workspaceId String
+    id           String  @id @default(auto()) @map("_id") @db.ObjectId
+    service      String  @unique
+    status       Boolean
+    workspaceId  String
+    slackBotoken String? @default("")
 }
 
 model Workspace {
