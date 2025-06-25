@@ -1,9 +1,10 @@
-import { App, AwsLambdaReceiver, ExpressReceiver, LogLevel } from "@slack/bolt";
+import { App, ExpressReceiver, LogLevel } from "@slack/bolt";
 import { config } from "dotenv";
 import { EventEmitter } from 'node:events'
-import { PrismaClient } from "@prisma/client";
-import amqp from "amqplib"
-import { validateSlackSchema } from "./schema/slack-message.schema";
+import { Prisma, PrismaClient } from "@prisma/client";
+import amqp, { ConsumeMessage } from "amqplib"
+import Redis from "./redis/redis";
+import { DefaultArgs } from "@prisma/client/runtime/library";
 
 config();
 
@@ -13,41 +14,34 @@ class CustomEmitter extends EventEmitter {
   }
 }
 
+type TPrismaTransaction = Prisma.TransactionClient
 
 const emitter = new CustomEmitter()
+
 const main = async () => {
   let channel: amqp.Channel
   let queue_name: string
   try {
     const connection = await amqp.connect("amqp://localhost")
 
-    channel = await connection.createChannel()
-    channel.prefetch(1)
-    queue_name = "slack_installation"
-
-    channel.assertQueue(queue_name, {
-      durable: true
+    const redis = new Redis()
+    redis.connect().then(() => {
+      console.log("🔗connected to redis successfully")
+    }).catch(e => {
+      console.log(" ❌ an error occured while connecting to redis")
     })
 
+    const REDIS_MIN = 0
+    const REDIS_MAX = 50
 
-    channel.assertQueue("get_slack_channels", { durable: true })
+    channel = await connection.createChannel()
+    channel.prefetch(1)
 
-    // channel.consume("get_slack_channels", async (message) => {
-    //   if (message) {
-    //     const parsed_msg = JSON.parse(message.content.toString())
-    //     await app.client.conversations.list({
-    //       token: parsed_msg.token
-    //     })
-
-    //     channel.ack(message)
-    //   }
-    // })
-
-
+    queue_name = "slack_installation"
 
     channel.assertQueue("slack_message", { durable: true })
 
-    channel.consume("slack_message", async (message) => {
+    channel.consume("slack_message", async (message: ConsumeMessage | null) => {
       if (message) {
         const msg = JSON.parse(message?.content.toString() as string)
 
@@ -58,19 +52,65 @@ const main = async () => {
             token: msg.token
           })
 
+
+          let task = await prisma.task.findUnique({ where: { messageId: msg.messageId } })
+          await prisma.$transaction(async (tx: TPrismaTransaction) => {
+            if (task) {
+              await tx.task.update({ where: { messageId: msg.messageId, id: task.id }, data: { status: true } })
+            }
+            else {
+              task = await tx.task.create({ data: { messageId: msg.messageId, workspaceId: msg.workspaceId, status: true, integration: "slack", text: msg.text } })
+            }
+
+            const found_msg = await tx.message.findUnique({ where: { id: msg.messageId } })
+            if (found_msg) {
+              await tx.message.update({ where: { id: found_msg.id }, data: { attachement: [task.id] } })
+              return
+            }
+            if (redis && redis.client) {
+              const messages = await redis.client.LRANGE('chat_messages', 0, 50);
+              if (!messages.length || messages.length < 1) {
+                throw new Error("Bad request")
+              }
+
+              let msg_index = 0
+              let cache_msg = messages.filter((cache_msg, idx) => {
+                if (JSON.parse(cache_msg).id === msg.messageId) {
+                  msg_index = idx
+                  return cache_msg
+                }
+              })
+              let parsed_msg = JSON.parse(cache_msg[0])
+              parsed_msg = { ...parsed_msg, attachement: [task.id] }
+              await redis.client.LSET("chat_messages", msg_index, JSON.stringify(parsed_msg))
+            }
+
+          })
+
           channel.ack(message)
+
         } catch (e) {
-          channel.nack(message, false, true)
+          let task = await prisma.task.findUnique({ where: { messageId: msg.messageId } })
+          if (task) {
+            await prisma.task.update({ where: { messageId: msg.messageId }, data: { status: false } })
+            return
+          }
+          await prisma.task.create({ data: { messageId: msg.messageId, workspaceId: msg.workspaceId, status: false, integration: "slack", text: msg.text } })
+          channel.nack(message, false, false)
         }
       }
     })
 
 
-    channel.consume(queue_name, async (message) => {
+    channel.assertQueue(queue_name, {
+      durable: true
+    })
+
+    channel.consume(queue_name, async (message: ConsumeMessage | null) => {
       if (message) {
         const workspaceId = message.content.toString()
         try {
-          await prisma.$transaction(async (tx) => {
+          await prisma.$transaction(async (tx: TPrismaTransaction) => {
             await tx.integration.create({
               data: {
                 service: "slack",
@@ -243,7 +283,7 @@ const main = async () => {
 
 
   expressApp.get("/", (req, res) => {
-    res.send("Hi Here")
+    res.send("Welcome to slack server for artificium")
   })
 
   expressApp.get("/slack/channels/:workspaceId", async (req, res) => {
@@ -264,7 +304,9 @@ const main = async () => {
   })
 
 
-
+  expressApp.post("/slack/schedule", async (req, res) => {
+    await app.client.chat.scheduleMessage({ text: req.body.text, post_at: Math.floor(req.body.post_at), channel: req.body.channel })
+  })
 
 
 

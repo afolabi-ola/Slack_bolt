@@ -40,3 +40,29 @@ model Workspace {
     members        String[] @default([])
     integrations   Json[]   @default([])
 }
+
+model Task {
+    id          String  @id @default(auto()) @map("_id") @db.ObjectId
+    status      Boolean
+    workspaceId String
+    messageId   String  @unique
+    text        String
+    integration String
+}
+
+model Message {
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    user          String
+    userId        String
+    text          String
+    mediaType     String   @default("text")
+    projectId     String
+    mediaLinks    String[] @default([])
+    channelId     String   @db.ObjectId
+    timestamp     DateTime @default(now())
+    reference     String   @default("")
+    deletedForMe  Boolean  @default(false)
+    deletedForAll Boolean  @default(false)
+    threadId      String
+    attachement   String[] @default([])
+}
