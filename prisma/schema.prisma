@@ -16,11 +16,14 @@ model SlackInstallation {
 }
 
 model Integration {
-    id           String  @id @default(auto()) @map("_id") @db.ObjectId
-    service      String  @unique
-    status       Boolean
-    workspaceId  String
-    slackBotoken String? @default("")
+    id                         String  @id @default(auto()) @map("_id") @db.ObjectId
+    service                    String
+    status                     Boolean
+    workspaceId                String
+    slackBotoken               String? @default("")
+    gmailRefreshToken          String? @default("")
+    gmailAccessToken           String? @default("")
+    gmailAccessTokenExpiryDate Int     @default(0)
 }
 
 model Workspace {

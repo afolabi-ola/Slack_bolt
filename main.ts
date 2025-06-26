@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events'
 import { Prisma, PrismaClient } from "@prisma/client";
 import amqp, { ConsumeMessage } from "amqplib"
 import Redis from "./redis/redis";
-import { DefaultArgs } from "@prisma/client/runtime/library";
+import { ObjectId } from "mongodb";
 
 config();
 
@@ -275,13 +275,6 @@ const main = async () => {
   });
 
 
-  expressApp.use((req, res, next) => {
-    console.log("Hello Guys")
-    next()
-
-  })
-
-
   expressApp.get("/", (req, res) => {
     res.send("Welcome to slack server for artificium")
   })
@@ -293,7 +286,7 @@ const main = async () => {
       return
     }
 
-    const integration = await prisma.integration.findUnique({ where: { service: "slack", workspaceId } })
+    const integration = await prisma.integration.findFirst({ where: { service: "slack", workspaceId } })
     if (!integration) {
       res.status(404).send({ message: "slack has not been setup in your workspace, report to admin" })
       return
@@ -304,11 +297,28 @@ const main = async () => {
   })
 
 
-  expressApp.post("/slack/schedule", async (req, res) => {
-    await app.client.chat.scheduleMessage({ text: req.body.text, post_at: Math.floor(req.body.post_at), channel: req.body.channel })
+  expressApp.post("/slack/schedule/", async (req, res) => {
+    const { workspaceId, text, post_at, channel, messageId } = req.query
+
+    if (!workspaceId || !text || !post_at || channel) {
+      res.status(400).send({ message: "invalid query " })
+      return
+    }
+    if (!ObjectId.isValid(workspaceId as string)) {
+      res.status(400).send({ message: "Invalid workspaceId" })
+      return
+    }
+
+    // TODO: complete slack scheduling feature , refactor and make code reusable
+    const integration = await prisma.integration.findFirst({ where: { workspaceId: workspaceId as string, service: "slack" } })
+    try {
+      await app.client.chat.scheduleMessage({ text: text as string, post_at: Math.floor(Number(post_at)), channel: channel as string, token: integration?.slackBotoken as string })
+      // await prisma
+      res.send({ message: "slack message scheduled successfully" })
+    } catch (e) {
+
+    }
   })
-
-
 
   expressApp.listen(PORT, async () => {
     console.log("slack app started successfully");
