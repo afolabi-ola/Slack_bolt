@@ -1,27 +1,38 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { TTask } from "../types/task";
+import { updateRedisMessage } from "./redisMessage";
+import { Channel, ConsumeMessage } from "amqplib";
+import Redis from "../redis/redis";
 
-async function upsertTask(prisma: PrismaClient | Prisma.TransactionClient, msgID: string, workspaceId: string, integration: string, status: boolean) {
+type TUpsertTaskParams = {
+    prisma: PrismaClient | Prisma.TransactionClient,
+    msgID: string,
+    workspaceId: string,
+    integration: string,
+    status: boolean,
+    channel: Channel
+    message: ConsumeMessage,
+    redis: Redis
+}
+
+async function upsertTask(taskParam: TUpsertTaskParams) {
+    const { integration, msgID, prisma, status, workspaceId, channel, message: rabbitMsg, redis } = taskParam
     const existing = await prisma.task.findFirst({ where: { workspaceId, messageId: msgID, integration } });
     const message = await prisma.message.findUnique({ where: { id: msgID } })
-    const isSlackIncluded = message?.attachement.includes("slack")
-    let updated_attachement = message?.attachement as Array<string>
-    if (isSlackIncluded) {
-        updated_attachement = message?.attachement.filter((item) => item !== "slack") as Array<string>
-    }
-    if (message) {
-        await prisma.message.update({ where: { id: msgID }, data: { attachement: [...updated_attachement, "slack"] } })
-    } else {
 
-    }
+
     let task: TTask
     if (existing) {
         task = await prisma.task.update({ where: { messageId: msgID }, data: { status } });
-
     } else {
         task = await prisma.task.create({
             data: { messageId: msgID, integration, status, text: `schedule a ${integration} message`, workspaceId }
         });
+    }
+    if (message) {
+        await prisma.message.update({ where: { id: msgID }, data: { attachement: { set: [task.id] } } })
+    } else {
+        updateRedisMessage(channel, rabbitMsg, redis, msgID, task)
     }
 
     return task

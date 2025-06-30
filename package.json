@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node main.ts",
     "build": "npx tsc",
-    "dev": "concurrently \"npm run build \" \"nodemon dist/main.js\""
+    "dev": "python3 script.py"
   },
   "keywords": [],
   "author": "",

@@ -18,7 +18,7 @@ const validateSlackConfigPayload = (payload: TSlackPayload) => {
 
 const slackMsgSchema = z.object({
     workspaceId: z.string({ message: "property workspace Id is required" }),
-    messageId: z.string({ message: "property messageId is required" }),
+    messageId: z.string({ message: "property messageId is required" }).optional(),
     text: z.string({ message: "property messageId is required" }),
     channel: z.string({ message: "property messageId is required" }),
     message: z.object({
@@ -27,7 +27,7 @@ const slackMsgSchema = z.object({
         threadId: z.string({ message: "property threadId is required" }),
         user: z.string({ message: "property user is required" }),
         userId: z.string({ message: "property userId is required" }),
-    })
+    }).optional()
 })
 
 
@@ -35,7 +35,10 @@ const slackMsgSchema = z.object({
 type TSlackMsgPayload = Required<z.infer<typeof slackMsgSchema>>
 
 const validateSlackMsgPayload = (payload: TSlackMsgPayload) => {
-    return slackMsgSchema.required().partial({ message: true }).safeParse(payload)
+    return slackMsgSchema.required().refine((data) => {
+        const filled = [data.message, data.messageId].filter(Boolean).length
+        return filled === 1
+    }).safeParse(payload)
 
 }
 
@@ -45,21 +48,24 @@ const slackMsgScheduleSchema = z.object({
     text: z.string({ message: "property text is required" }),
     post_at: z.string({ message: "property post_at is required" }),
     workspaceId: z.string({ message: "property workspaceId is required" }),
-    messageId: z.string({ message: "property messageId is required" }),
+    messageId: z.string({ message: "property messageId is required" }).optional(),
     message: z.object({
         channelId: z.string({ message: "property channelId is required" }),
         projectId: z.string({ message: "property projectId is required" }),
         threadId: z.string({ message: "property threadId is required" }),
         user: z.string({ message: "property user is required" }),
         userId: z.string({ message: "property userId is required" }),
-    })
+    }).optional()
 })
 
 type TSlackScheduleMessage = Required<z.infer<typeof slackMsgScheduleSchema>>
 
 
 const validateSlackSchedule = (payload: TSlackScheduleMessage) => {
-    return slackMsgScheduleSchema.required().partial({ message: true, messageId: true }).safeParse(payload)
+    return slackMsgScheduleSchema.required().refine((data) => {
+        const filled = [data.message, data.messageId].filter(Boolean).length
+        return filled === 1
+    }).safeParse(payload)
 }
 
 export { slackConfigure, validateSlackConfigPayload, TSlackPayload, validateSlackMsgPayload, TSlackScheduleMessage, validateSlackSchedule }
