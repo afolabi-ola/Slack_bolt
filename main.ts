@@ -4,12 +4,9 @@ import { EventEmitter } from 'node:events'
 import { Prisma, PrismaClient } from "@prisma/client";
 import amqp, { ConsumeMessage } from "amqplib"
 import Redis from "./redis/redis";
-import { ObjectId } from "mongodb";
 import { validateSlackMsgPayload, validateSlackSchedule } from "./zod/slack-schedule.schema";
-import TMessage from "./types/slackMessage.types";
 import upsertTask from "./utils/upsertTask";
 import validateOrCreateMessage from "./utils/validateMessageId";
-import { redisMessage } from "./utils/redisMessage";
 
 config();
 
