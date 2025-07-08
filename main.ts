@@ -64,12 +64,15 @@ const main = async () => {
         if (!msgID) {
           return
         }
-
+        let status: boolean = false
         try {
-          let status: boolean = false
+
           const integration = await prisma.integration.findFirst({ where: { workspaceId: data.workspaceId, service: "slack" } })
           if (!integration) {
             process.env.NODE_ENV?.includes("dev") && console.log("integration not found")
+
+            channel.nack(message, false, false)
+            throw new Error("Integration not found")
           }
           else {
             if (integration.slackBotoken && integration.slackBotoken.length) {
@@ -82,34 +85,30 @@ const main = async () => {
               status = true
             }
           }
-
-
-          await prisma.$transaction(async (tx: TPrismaTransaction) => {
-            await upsertTask({
-              channel,
-              integration: "slack",
-              message,
-              msgID,
-              prisma: tx,
-              redis,
-              status,
-              workspaceId: data.workspaceId
-            })
-
-
-          })
-
-          channel.ack(message)
-
         } catch (e) {
-          let task = await prisma.task.findUnique({ where: { messageId: msgID } })
-          if (task) {
-            await prisma.task.update({ where: { messageId: msgID }, data: { status: false } })
-            return
-          }
-          await prisma.task.create({ data: { messageId: msgID, workspaceId: msg.workspaceId, status: false, integration: "slack", text: msg.text } })
+          status = false
           channel.nack(message, false, false)
         }
+
+
+        await prisma.$transaction(async (tx: TPrismaTransaction) => {
+          await upsertTask({
+            channel,
+            integration: "slack",
+            message,
+            msgID,
+            prisma: tx,
+            redis,
+            status,
+            workspaceId: data.workspaceId
+          })
+
+
+        })
+
+        channel.ack(message)
+
+
       }
     })
 
@@ -168,7 +167,8 @@ const main = async () => {
 
         const msgID = await validateOrCreateMessage(channel, message, prisma, redis, data)
         if (!msgID) {
-          return
+          channel.nack(message, false, false)
+          throw new Error("messageId not found in both db")
         }
 
 
@@ -186,6 +186,8 @@ const main = async () => {
 
         if (!integration) {
           console.log("integration not found")
+          channel.nack(message, false, false)
+          throw new Error("Integration not found")
         } else {
           try {
             await app.client.chat.scheduleMessage({ text: data.text, post_at: data.post_at, channel: data.channel, token: integration?.slackBotoken as string })
@@ -373,33 +375,6 @@ const main = async () => {
     res.send({ message: "channels retrieved successfully", data: result.channels })
   })
 
-
-  expressApp.post("/slack/schedule/", async (req, res) => {
-    const { workspaceId, text, post_at, channel, messageId } = req.query
-
-    if (!workspaceId || !text || !post_at || channel || messageId) {
-      res.status(400).send({ message: "incomplete query parameters query " })
-      return
-    }
-    if (!ObjectId.isValid(workspaceId as string)) {
-      res.status(400).send({ message: "Invalid workspaceId" })
-      return
-    }
-
-    // TODO: complete slack scheduling feature , refactor and make code reusable
-    const message = await prisma.message.findUnique({ where: { id: messageId as string } })
-    if (!message) {
-      await prisma.message.create({ data: { text: "", channelId: "", projectId: "", threadId: "", user: "", userId: "" } })
-    }
-    const integration = await prisma.integration.findFirst({ where: { workspaceId: workspaceId as string, service: "slack" } })
-    try {
-      await app.client.chat.scheduleMessage({ text: text as string, post_at: Math.floor(Number(post_at)), channel: channel as string, token: integration?.slackBotoken as string })
-      // await prisma
-      res.send({ message: "slack message scheduled successfully" })
-    } catch (e) {
-
-    }
-  })
 
   expressApp.listen(PORT, async () => {
     console.log("slack app started successfully");

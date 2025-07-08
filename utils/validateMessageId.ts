@@ -3,7 +3,6 @@ import { TSlackScheduleMessage } from "../zod/slack-schedule.schema"
 import { PrismaClient } from "@prisma/client"
 import { Channel, ConsumeMessage } from "amqplib"
 import Redis from "../redis/redis"
-import { TTask } from "../types/task"
 import { redisMessage } from "./redisMessage"
 import { TMessageData } from "../types/data"
 
