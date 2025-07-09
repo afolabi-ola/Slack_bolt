@@ -52,6 +52,7 @@ model Task {
     text        String
     integration String
     queue       String
+    payload     Json
 }
 
 model Message {

@@ -52,6 +52,9 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 channel.ack(message)
             }
 
+            // for a task to fail , then a message already exist
+            const { message: exist_msg, ...other } = data
+
             await upsertTask({
                 channel,
                 integration: taskData.integration,
@@ -61,7 +64,8 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 redis,
                 status: taskData.status,
                 workspaceId: taskData.workspaceId,
-                q: "slack-schedule"
+                q: "slack-schedule",
+                payload: JSON.stringify({ ...other, messageId: msgID })
             })
 
 
@@ -145,7 +149,9 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 channel.nack(message, false, false)
             }
 
+            // for a task to fail , then a message already exist
 
+            const { message: exist_msg, ...other } = data
             await prisma.$transaction(async (tx: TPrismaTransaction) => {
                 await upsertTask({
                     channel,
@@ -156,7 +162,8 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                     redis,
                     status,
                     workspaceId: data.workspaceId,
-                    q: "slack_message"
+                    q: "slack_message",
+                    payload: JSON.stringify({ ...other, messageId: msgID })
                 })
 
 
