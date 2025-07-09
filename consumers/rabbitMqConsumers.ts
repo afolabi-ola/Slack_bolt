@@ -60,7 +60,8 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 prisma,
                 redis,
                 status: taskData.status,
-                workspaceId: taskData.workspaceId
+                workspaceId: taskData.workspaceId,
+                q: "slack-schedule"
             })
 
 
@@ -154,7 +155,8 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                     prisma: tx,
                     redis,
                     status,
-                    workspaceId: data.workspaceId
+                    workspaceId: data.workspaceId,
+                    q: "slack_message"
                 })
 
 

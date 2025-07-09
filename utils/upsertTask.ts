@@ -13,10 +13,11 @@ type TUpsertTaskParams = {
     channel: Channel
     message: ConsumeMessage,
     redis: Redis
+    q: string
 }
 
 async function upsertTask(taskParam: TUpsertTaskParams) {
-    const { integration, msgID, prisma, status, workspaceId, channel, message: rabbitMsg, redis } = taskParam
+    const { integration, msgID, prisma, status, workspaceId, channel, message: rabbitMsg, redis, q } = taskParam
     const existing = await prisma.task.findFirst({ where: { workspaceId, messageId: msgID, integration } });
     const message = await prisma.message.findUnique({ where: { id: msgID } })
 
@@ -26,7 +27,7 @@ async function upsertTask(taskParam: TUpsertTaskParams) {
         task = await prisma.task.update({ where: { messageId: msgID }, data: { status } });
     } else {
         task = await prisma.task.create({
-            data: { messageId: msgID, integration, status, text: `schedule a ${integration} message`, workspaceId }
+            data: { messageId: msgID, integration, status, text: `schedule a ${integration} message`, workspaceId, queue: q }
         });
     }
     if (message) {

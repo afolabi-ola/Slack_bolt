@@ -51,6 +51,7 @@ model Task {
     messageId   String  @unique
     text        String
     integration String
+    queue       String
 }
 
 model Message {
