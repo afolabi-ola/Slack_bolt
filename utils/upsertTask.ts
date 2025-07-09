@@ -9,33 +9,35 @@ type TUpsertTaskParams = {
     msgID: string,
     workspaceId: string,
     integration: string,
-    status: boolean,
+    taskId: string,
+    status: string,
     channel: Channel
     message: ConsumeMessage,
     redis: Redis
+    q: string,
+    payload: string
 }
 
+
+
 async function upsertTask(taskParam: TUpsertTaskParams) {
-    const { integration, msgID, prisma, status, workspaceId, channel, message: rabbitMsg, redis } = taskParam
-    const existing = await prisma.task.findFirst({ where: { workspaceId, messageId: msgID, integration } });
+    const { integration, msgID, prisma, status, workspaceId, channel, message: rabbitMsg, redis, q, payload, taskId } = taskParam
+    const current_task = await prisma.task.findUnique({ where: { workspaceId, messageId: msgID, integration, id: taskId } });
     const message = await prisma.message.findUnique({ where: { id: msgID } })
 
 
     let task: TTask
-    if (existing) {
-        task = await prisma.task.update({ where: { messageId: msgID }, data: { status } });
-    } else {
-        task = await prisma.task.create({
-            data: { messageId: msgID, integration, status, text: `schedule a ${integration} message`, workspaceId }
-        });
-    }
-    if (message) {
-        await prisma.message.update({ where: { id: msgID }, data: { attachement: { set: [task.id] } } })
-    } else {
-        updateRedisMessage(channel, rabbitMsg, redis, msgID, task)
+    if (current_task) {
+        task = await prisma.task.update({ where: { id: taskId }, data: { status, messageId: msgID, integration, text: `create an integration`, workspaceId, queue: q, payload } });
+        if (message) {
+            await prisma.message.update({ where: { id: msgID }, data: { attachement: { set: [task.id] } } })
+        } else {
+            updateRedisMessage(channel, rabbitMsg, redis, msgID, task)
+        }
+
+        return task
     }
 
-    return task
 
 }
 

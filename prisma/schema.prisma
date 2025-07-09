@@ -46,11 +46,13 @@ model Workspace {
 
 model Task {
     id          String  @id @default(auto()) @map("_id") @db.ObjectId
-    status      Boolean
+    status      String
     workspaceId String
-    messageId   String  @unique
-    text        String
+    messageId   String? @unique
+    text        String?
     integration String
+    queue       String?
+    payload     Json?
 }
 
 model Message {
