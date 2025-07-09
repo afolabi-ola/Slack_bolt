@@ -22,6 +22,7 @@ const slackMsgSchema = z.object({
     text: z.string({ message: "property messageId is required" }),
     channel: z.string({ message: "property messageId is required" }),
     integrationId: z.string({ message: "property integrationId is required" }),
+    taskId: z.string({ message: "property taskId is required" }),
     message: z.object({
         channelId: z.string({ message: "property channelId is required" }),
         projectId: z.string({ message: "property projectId is required" }),
@@ -51,6 +52,7 @@ const slackMsgScheduleSchema = z.object({
     workspaceId: z.string({ message: "property workspaceId is required" }),
     messageId: z.string({ message: "property messageId is required" }).optional(),
     integrationId: z.string({ message: "property integrationId is required" }),
+    taskId: z.string({ message: "property taskId is required" }),
     message: z.object({
         channelId: z.string({ message: "property channelId is required" }),
         projectId: z.string({ message: "property projectId is required" }),

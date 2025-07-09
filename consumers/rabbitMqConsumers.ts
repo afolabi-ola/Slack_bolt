@@ -13,6 +13,12 @@ import { EventEmitter } from "node:stream"
 const prisma = new PrismaClient()
 type TPrismaTransaction = Prisma.TransactionClient
 
+enum TTaskStatus {
+    QUEUED = "queued",
+    SUCCESS = "success",
+    FAILED = "failed"
+}
+
 const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIndexed>, emitter: EventEmitter) => {
 
     channel.consume("slack-schedule", async (message: ConsumeMessage | null) => {
@@ -41,14 +47,15 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 integration: "slack",
                 text: "schedule a slack message",
                 workspaceId: data.workspaceId,
-                status: false // default to fail, we'll update to true if successful
+                status: TTaskStatus.FAILED// default to fail, we'll update to true if successful
             };
 
             const integration = await prisma.integration.findUnique({ where: { id: data.integrationId } })
             try {
                 await app.client.chat.scheduleMessage({ text: data.text, post_at: data.post_at, channel: data.channel, token: integration?.slackBotoken as string })
-                taskData.status = true
+                taskData.status = TTaskStatus.SUCCESS
             } catch (e) {
+                taskData.status = TTaskStatus.FAILED
                 channel.ack(message)
             }
 
@@ -62,6 +69,7 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 msgID: taskData.messageId,
                 prisma,
                 redis,
+                taskId: data.taskId,
                 status: taskData.status,
                 workspaceId: taskData.workspaceId,
                 q: "slack-schedule",
@@ -125,7 +133,7 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
             if (!msgID) {
                 return
             }
-            let status: boolean = false
+            let status: string = TTaskStatus.FAILED
             try {
 
                 const integration = await prisma.integration.findUnique({ where: { id: data.integrationId } })
@@ -136,7 +144,7 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                         token: integration.slackBotoken
                     })
 
-                    status = true
+                    status = TTaskStatus.SUCCESS
                 } else {
                     console.log("no integration token")
                     channel.nack(message, false, false)
@@ -145,7 +153,7 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                 }
 
             } catch (e) {
-                status = false
+                status = TTaskStatus.FAILED
                 channel.nack(message, false, false)
             }
 
@@ -159,6 +167,7 @@ const rabbitMQConsumer = (channel: amqp.Channel, redis: Redis, app: App<StringIn
                     message,
                     msgID,
                     prisma: tx,
+                    taskId: data.taskId,
                     redis,
                     status,
                     workspaceId: data.workspaceId,
