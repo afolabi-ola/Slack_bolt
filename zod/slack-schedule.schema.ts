@@ -37,10 +37,7 @@ const slackMsgSchema = z.object({
 type TSlackMsgPayload = Required<z.infer<typeof slackMsgSchema>>
 
 const validateSlackMsgPayload = (payload: TSlackMsgPayload) => {
-    return slackMsgSchema.required().refine((data) => {
-        const filled = [data.message, data.messageId].filter(Boolean).length
-        return filled === 1
-    }).safeParse(payload)
+    return slackMsgSchema.required().partial({ message: true, messageId: true }).safeParse(payload)
 
 }
 
@@ -66,10 +63,7 @@ type TSlackScheduleMessage = Required<z.infer<typeof slackMsgScheduleSchema>>
 
 
 const validateSlackSchedule = (payload: TSlackScheduleMessage) => {
-    return slackMsgScheduleSchema.required().refine((data) => {
-        const filled = [data.message, data.messageId].filter(Boolean).length
-        return filled === 1
-    }).safeParse(payload)
+    return slackMsgScheduleSchema.required().partial({ message: true, messageId: true }).safeParse(payload)
 }
 
 export { slackConfigure, validateSlackConfigPayload, TSlackPayload, validateSlackMsgPayload, TSlackScheduleMessage, validateSlackSchedule }
