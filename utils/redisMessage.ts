@@ -16,6 +16,9 @@ const redisMessage = async (channel: Channel, message: ConsumeMessage, redis: Re
                 return cache_msg
             }
         })
+        if (!cache_msg.length) {
+            return undefined
+        }
         let parsed_msg = JSON.parse(cache_msg[0])
         return parsed_msg as TMessage
     }

@@ -1,10 +1,13 @@
+import { Prisma } from "@prisma/client";
+
 type TTask = {
     integration: string;
-    text: string;
+    status: string;
     workspaceId: string;
-    messageId: string;
-    status: boolean;
+    payload: Prisma.JsonValue | null;
     id: string;
+    messageId: string | null;
+    text: string | null;
+    queue: string | null;
 }
-
 export type { TTask }

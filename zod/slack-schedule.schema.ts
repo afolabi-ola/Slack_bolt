@@ -21,6 +21,8 @@ const slackMsgSchema = z.object({
     messageId: z.string({ message: "property messageId is required" }).optional(),
     text: z.string({ message: "property messageId is required" }),
     channel: z.string({ message: "property messageId is required" }),
+    integrationId: z.string({ message: "property integrationId is required" }),
+    taskId: z.string({ message: "property taskId is required" }),
     message: z.object({
         channelId: z.string({ message: "property channelId is required" }),
         projectId: z.string({ message: "property projectId is required" }),
@@ -35,10 +37,7 @@ const slackMsgSchema = z.object({
 type TSlackMsgPayload = Required<z.infer<typeof slackMsgSchema>>
 
 const validateSlackMsgPayload = (payload: TSlackMsgPayload) => {
-    return slackMsgSchema.required().refine((data) => {
-        const filled = [data.message, data.messageId].filter(Boolean).length
-        return filled === 1
-    }).safeParse(payload)
+    return slackMsgSchema.required().partial({ message: true, messageId: true }).safeParse(payload)
 
 }
 
@@ -49,6 +48,8 @@ const slackMsgScheduleSchema = z.object({
     post_at: z.string({ message: "property post_at is required" }),
     workspaceId: z.string({ message: "property workspaceId is required" }),
     messageId: z.string({ message: "property messageId is required" }).optional(),
+    integrationId: z.string({ message: "property integrationId is required" }),
+    taskId: z.string({ message: "property taskId is required" }),
     message: z.object({
         channelId: z.string({ message: "property channelId is required" }),
         projectId: z.string({ message: "property projectId is required" }),
@@ -62,10 +63,7 @@ type TSlackScheduleMessage = Required<z.infer<typeof slackMsgScheduleSchema>>
 
 
 const validateSlackSchedule = (payload: TSlackScheduleMessage) => {
-    return slackMsgScheduleSchema.required().refine((data) => {
-        const filled = [data.message, data.messageId].filter(Boolean).length
-        return filled === 1
-    }).safeParse(payload)
+    return slackMsgScheduleSchema.required().partial({ message: true, messageId: true }).safeParse(payload)
 }
 
 export { slackConfigure, validateSlackConfigPayload, TSlackPayload, validateSlackMsgPayload, TSlackScheduleMessage, validateSlackSchedule }

@@ -3,11 +3,9 @@ import { TSlackScheduleMessage } from "../zod/slack-schedule.schema"
 import { PrismaClient } from "@prisma/client"
 import { Channel, ConsumeMessage } from "amqplib"
 import Redis from "../redis/redis"
-import { TTask } from "../types/task"
 import { redisMessage } from "./redisMessage"
-import { TMessageData } from "../types/data"
 
-const validateOrCreateMessage = async (channel: Channel, message: ConsumeMessage, prisma: PrismaClient, redis: Redis, data?: TMessageData | TSlackScheduleMessage) => {
+const validateOrCreateMessage = async (channel: Channel, message: ConsumeMessage, prisma: PrismaClient, redis: Redis, data?: Partial<TSlackScheduleMessage>) => {
     if (!data) {
         return null
     }

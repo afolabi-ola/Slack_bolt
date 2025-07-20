@@ -3,23 +3,19 @@ type TMessageData = {
     channel: string;
     workspaceId: string;
     messageId: string;
-    message?: {
-        channelId: string;
-        projectId: string;
-        threadId: string;
-        user: string;
-        userId: string;
-    } | undefined;
+    message?: TMessage;
 }
 
+type TMessage = {
+    channelId: string;
+    projectId: string;
+    threadId: string;
+    user: string;
+    userId: string;
+};
+
 type TScheduleMessageData = {
-    message: {
-        channelId: string;
-        projectId: string;
-        threadId: string;
-        user: string;
-        userId: string;
-    };
+    message?: TMessage;
     workspaceId: string;
     messageId: string;
     text: string;
